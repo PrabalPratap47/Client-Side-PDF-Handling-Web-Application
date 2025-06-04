@@ -224,11 +224,11 @@ const PdfViewer = ({ pdfUrl, pdfBuffer }) => {
               scale={scale}
               onClick={handlePageClick}
               renderAnnotationLayer={false}
-              renderTextLayer={true}
+              renderTextLayer={false}
               style={{ cursor: editMode ? 'crosshair' : 'default' }}
             />
           </Document>
-          <div style={markerStyle}></div>
+          {/* <div style={markerStyle}></div> */}
         </div>
       </div>
     </div>

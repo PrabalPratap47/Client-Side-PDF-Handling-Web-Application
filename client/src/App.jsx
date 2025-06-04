@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import PdfViewer from './components/PdfViewer';
 
 const App = () => {
-  const [pdfUrl, setPdfUrl] = useState(null);
-  const [pdfBuffer, setPdfBuffer] = useState(null);
+  const [pdfUrl, setPdfUrl] = useState(null);   //pdffUrl for displaying with react-pdf.
+  const [pdfBuffer, setPdfBuffer] = useState(null);   //pdfBuffer for editing with pdf-lib.
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
