@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Document, Page } from 'react-pdf';
+import { Document, Page,  } from 'react-pdf';
 import { PDFDocument, rgb } from 'pdf-lib';
+
+
 
 const RECT_WIDTH = 200;
 const RECT_HEIGHT = 40;
@@ -13,9 +15,10 @@ const PdfViewer = ({ pdfUrl, pdfBuffer }) => {
   const [error, setError] = useState(null);
   const [marker, setMarker] = useState(null); // {x, y, page}
   const [scale] = useState(1.2);
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+  const [textBoxPos, setTextBoxPos] = useState(null); // px position for textarea
 
   const pageRef = useRef();
-  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
     setTimeout(() => {
@@ -44,13 +47,22 @@ const PdfViewer = ({ pdfUrl, pdfBuffer }) => {
     console.error('PDF source error:', err);
   };
 
-  // Convert click to PDF coordinates
   const handlePageClick = (event) => {
     if (!editMode) return;
+
     const rect = event.target.getBoundingClientRect();
     const x = (event.clientX - rect.left) / scale;
     const y = (rect.height - (event.clientY - rect.top)) / scale;
     setMarker({ x, y, page: currentPage });
+
+    if (editMode === 'text') {
+      setTextBoxPos({
+        left: event.clientX - rect.left,
+        top: event.clientY - rect.top,
+      });
+    } else {
+      setTextBoxPos(null);
+    }
   };
 
   const applyEdit = async () => {
@@ -99,33 +111,25 @@ const PdfViewer = ({ pdfUrl, pdfBuffer }) => {
       link.href = url;
       link.download = 'edited.pdf';
       link.click();
-      setMarker(null); // reset marker after edit
+
+      // Reset states
+      setMarker(null);
       setText('');
+      setTextBoxPos(null);
+      setError(null);
     } catch (err) {
       setError('Failed to edit PDF.');
       console.error('Edit error:', err);
     }
   };
 
-  // Marker style calculation (centered under cursor)
+  // Calculate marker styles for erase & blur box
   let markerStyle = { display: 'none' };
   if (marker && marker.page === currentPage && canvasSize.width && canvasSize.height) {
     const left = marker.x * scale;
     const top = canvasSize.height - marker.y * scale;
-    if (editMode === 'text') {
-      markerStyle = {
-        position: 'absolute',
-        left: left - 5,
-        top: top - 5,
-        width: 10,
-        height: 10,
-        background: 'blue',
-        borderRadius: '50%',
-        border: '2px solid white',
-        zIndex: 10,
-        pointerEvents: 'none'
-      };
-    } else if (editMode === 'erase') {
+
+    if (editMode === 'erase') {
       markerStyle = {
         position: 'absolute',
         left: left - (RECT_WIDTH * scale) / 2,
@@ -163,7 +167,7 @@ const PdfViewer = ({ pdfUrl, pdfBuffer }) => {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1em', marginBottom: '1em' }}>
           <button
-            onClick={() => { setCurrentPage((p) => Math.max(1, p - 1)); setMarker(null); }}
+            onClick={() => { setCurrentPage((p) => Math.max(1, p - 1)); setMarker(null); setTextBoxPos(null); }}
             disabled={currentPage <= 1}
           >
             Previous
@@ -172,7 +176,7 @@ const PdfViewer = ({ pdfUrl, pdfBuffer }) => {
             Page {currentPage} of {numPages}
           </span>
           <button
-            onClick={() => { setCurrentPage((p) => Math.min(numPages, p + 1)); setMarker(null); }}
+            onClick={() => { setCurrentPage((p) => Math.min(numPages, p + 1)); setMarker(null); setTextBoxPos(null); }}
             disabled={currentPage >= numPages}
           >
             Next
@@ -181,21 +185,13 @@ const PdfViewer = ({ pdfUrl, pdfBuffer }) => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '1em' }}>
           <select
             value={editMode}
-            onChange={(e) => { setEditMode(e.target.value); setMarker(null); }}
+            onChange={(e) => { setEditMode(e.target.value); setMarker(null); setTextBoxPos(null); setText(''); }}
           >
             <option value="">Select Edit Mode</option>
             <option value="blur">Blur Section</option>
             <option value="erase">Erase Section</option>
             <option value="text">Add Text</option>
           </select>
-          {editMode === 'text' && (
-            <input
-              type="text"
-              placeholder="Enter text"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-            />
-          )}
           <button
             onClick={applyEdit}
             disabled={!editMode || !marker}
@@ -210,6 +206,7 @@ const PdfViewer = ({ pdfUrl, pdfBuffer }) => {
         )}
         {error && <div style={{ color: 'red', marginTop: '1em' }}>{error}</div>}
       </div>
+
       {/* PDF display with marker overlay */}
       <div style={{ display: 'flex', justifyContent: 'center', position: 'relative' }}>
         <div ref={pageRef} style={{ position: 'relative', display: 'inline-block' }}>
@@ -228,7 +225,31 @@ const PdfViewer = ({ pdfUrl, pdfBuffer }) => {
               style={{ cursor: editMode ? 'crosshair' : 'default' }}
             />
           </Document>
-          {/* <div style={markerStyle}></div> */}
+
+          {/* Erase or Blur marker box */}
+          {(editMode === 'erase' || editMode === 'blur') && <div style={markerStyle}></div>}
+
+          {/* Text input box */}
+          {editMode === 'text' && marker && marker.page === currentPage && textBoxPos && (
+            <textarea
+              style={{
+                position: 'absolute',
+                left: textBoxPos.left,
+                top: textBoxPos.top,
+                width: RECT_WIDTH * scale,
+                height: RECT_HEIGHT * scale,
+                resize: 'none',
+                fontSize: 16,
+                zIndex: 20,
+                border: '2px solid blue',
+                background: 'rgba(255,255,255,0.9)',
+              }}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              autoFocus
+              placeholder="Type here..."
+            />
+          )}
         </div>
       </div>
     </div>

@@ -6,7 +6,7 @@ const fs = require('fs');
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json()); //Parses incoming JSON payloads
 
 const upload = multer({ dest: 'uploads/' });
 
@@ -16,8 +16,8 @@ app.post('/upload', upload.single('pdf'), (req, res) => {
 
 app.post('/process', async (req, res) => {
   const { edits, filename } = req.body;
-  const pdfBytes = fs.readFileSync(`uploads/${filename}`);
-  const pdfDoc = await PDFDocument.load(pdfBytes);
+  const pdfBytes = fs.readFileSync(`uploads/${filename}`);//reads
+  const pdfDoc = await PDFDocument.load(pdfBytes);//loads to edit
   const pages = pdfDoc.getPages();
 
   edits.forEach(edit => {
@@ -38,9 +38,11 @@ app.post('/process', async (req, res) => {
     }
   });
 
-  const newPdf = await pdfDoc.save();
+  const newPdf = await pdfDoc.save(); //saves the edited PDF
   const newFilename = `edited_${filename}`;
   fs.writeFileSync(`uploads/${newFilename}`, newPdf);
+  //writes the edited PDF to disk with a new filename
+  
 
   res.json({ filename: newFilename });
 });
